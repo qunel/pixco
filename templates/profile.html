@@ -158,15 +158,32 @@
         body.dark .character-card {
             background: #2a2a2a;
         }
+        .hamburger { display: none; background: none; border: none; font-size: 1.6rem; cursor: pointer; padding: 4px 8px; color: #333; }
+        .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; }
+        .sidebar-overlay.open { display: block; }
+        body.dark .hamburger { color: #e0e0e0; }
+        @media (max-width: 768px) {
+            .hamburger { display: block; }
+            .sidebar { position: fixed; top: 0; left: -240px; height: 100%; z-index: 200; transition: left 0.3s; padding-top: 60px; }
+            .sidebar.open { left: 0; }
+            .container { flex-direction: column; }
+            .main-content { padding: 20px; }
+            .profile-header { flex-direction: column; align-items: center; text-align: center; gap: 16px; }
+            .profile-image { width: 110px; height: 110px; font-size: 3rem; }
+        }
     </style>
 </head>
 <body>
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleMenu()"></div>
     <div class="header">
-        <div class="logo">PIXCO</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+            <button class="hamburger" onclick="toggleMenu()">☰</button>
+            <div class="logo">PIXCO</div>
+        </div>
         <button class="dark-toggle" id="dark-toggle" onclick="toggleDark()">🌙 ダーク</button>
     </div>
     <div class="container">
-        <div class="sidebar">
+        <div class="sidebar" id="sidebar">
             <ul>
                 <li><a href="/">ホーム</a></li>
                 <li><a href="/profile/">プロフィール</a></li>
@@ -234,6 +251,10 @@
         if (localStorage.getItem('darkMode') === 'true') {
             document.body.classList.add('dark');
             document.getElementById('dark-toggle').textContent = '☀️ ライト';
+        }
+        function toggleMenu() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebar-overlay').classList.toggle('open');
         }
     </script>
 </body>

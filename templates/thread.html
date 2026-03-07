@@ -38,6 +38,12 @@
         body.dark .back-link { color: #aaa; }
         body.dark .back-link:hover { color: #fff; }
         body.dark .image-grid img { border-color: #444; }
+        @media (max-width: 768px) {
+            .main-content { padding: 16px; }
+            h1 { font-size: 1.2rem; }
+            .image-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+            .image-grid img { height: 140px; }
+        }
     </style>
 </head>
 <body>
