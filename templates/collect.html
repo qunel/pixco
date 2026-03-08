@@ -1,124 +1,59 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>画像収集 - PIXCO</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #ffffff; color: #333; }
-        .header { background-color: #fff; border-bottom: 1px solid #e0e0e0; padding: 15px 30px; display: flex; align-items: center; justify-content: space-between; }
-        .logo { font-size: 1.8rem; font-weight: bold; color: #fff; -webkit-text-stroke: 1px #000; letter-spacing: 2px; }
-        .dark-toggle { background: none; border: 1px solid #ccc; border-radius: 20px; padding: 6px 14px; cursor: pointer; font-size: 1rem; color: #333; }
-        .container { display: flex; min-height: calc(100vh - 60px); }
-        .sidebar { width: 220px; background-color: #fafafa; border-right: 1px solid #e0e0e0; padding: 20px; }
-        .sidebar ul { list-style: none; }
-        .sidebar li { margin-bottom: 8px; }
-        .sidebar a { color: #666; text-decoration: none; display: block; padding: 10px 15px; border-radius: 6px; transition: all 0.2s; }
-        .sidebar a:hover { background-color: #eee; color: #333; }
-        .main-content { flex: 1; padding: 40px; }
-        .main-content h1 { font-size: 1.8rem; font-weight: 300; margin-bottom: 24px; }
-        .board-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
-        .board-btn { padding: 6px 16px; border: 1px solid #ccc; border-radius: 20px; text-decoration: none; color: #555; font-size: 0.88rem; transition: all 0.2s; }
-        .board-btn:hover, .board-btn.active { background: #333; color: #fff; border-color: #333; }
-        .error { background: #ffe0e0; border: 1px solid #cc0000; padding: 14px; border-radius: 8px; color: #cc0000; margin-bottom: 20px; }
-        .thread-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
-        .thread-card { border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; transition: box-shadow 0.2s; }
-        .thread-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
-        .thread-card a { display: block; }
-        .thread-card img { width: 100%; height: 160px; object-fit: cover; display: block; }
-        .thread-card .card-body { padding: 10px; }
-        .thread-card .card-title { font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; }
-        .thread-card .card-comment { font-size: 0.8rem; color: #777; line-height: 1.4; }
+{% extends "base.html" %}
 
-        body.dark { background-color: #1a1a1a; color: #e0e0e0; }
-        body.dark .header { background-color: #222; border-bottom-color: #444; }
-        body.dark .sidebar { background-color: #222; border-right-color: #444; }
-        body.dark .sidebar a { color: #bbb; }
-        body.dark .sidebar a:hover { background-color: #333; color: #fff; }
-        body.dark .dark-toggle { border-color: #666; color: #e0e0e0; }
-        body.dark .board-btn { border-color: #555; color: #bbb; }
-        body.dark .board-btn:hover, body.dark .board-btn.active { background: #e0e0e0; color: #111; border-color: #e0e0e0; }
-        body.dark .thread-card { border-color: #444; }
-        body.dark .thread-card .card-comment { color: #999; }
-        body.dark .main-content h1 { color: #e0e0e0; }
-        .hamburger { display: none; background: none; border: none; font-size: 1.6rem; cursor: pointer; padding: 4px 8px; color: #333; }
-        .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; }
-        .sidebar-overlay.open { display: block; }
-        body.dark .hamburger { color: #e0e0e0; }
-        @media (max-width: 768px) {
-            .hamburger { display: block; }
-            .sidebar { position: fixed; top: 0; left: -240px; height: 100%; z-index: 200; transition: left 0.3s; padding-top: 60px; }
-            .sidebar.open { left: 0; }
-            .container { flex-direction: column; }
-            .main-content { padding: 16px; }
-            .thread-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-            .thread-card img { height: 130px; }
-            .board-list { gap: 8px; margin-bottom: 20px; }
-            .board-btn { padding: 6px 12px; font-size: 0.82rem; }
-        }
-    </style>
-</head>
-<body>
-    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleMenu()"></div>
-    <div class="header">
-        <div style="display:flex;align-items:center;gap:10px;">
-            <button class="hamburger" onclick="toggleMenu()">☰</button>
-            <div class="logo">PIXCO</div>
-        </div>
-        <button class="dark-toggle" id="dark-toggle" onclick="toggleDark()">🌙 ダーク</button>
-    </div>
-    <div class="container">
-        <div class="sidebar" id="sidebar">
-            <ul>
-                <li><a href="/">ホーム</a></li>
-                <li><a href="/profile/">プロフィール</a></li>
-                <li><a href="/collect/">画像収集</a></li>
-            </ul>
-        </div>
-        <div class="main-content">
-            <div class="board-list">
-                {% for board in boards %}
-                    <a href="?board={{ board.url }}" class="board-btn {% if board.url == board_url %}active{% endif %}">{{ board.name }}</a>
-                {% endfor %}
-            </div>
-            {% if error %}
-                <div class="error">{{ error }}</div>
-            {% elif threads %}
-                <div class="thread-grid">
-                    {% for t in threads %}
-                        <div class="thread-card">
-                            <a href="/collect/thread/?url={{ t.res_url }}">
-                                <img src="{{ t.thumb }}" alt="{{ t.title }}" loading="lazy">
-                            </a>
-                            <div class="card-body">
-                                <div class="card-title">{{ t.title }}</div>
-                                <div class="card-comment">{{ t.comment }}</div>
-                            </div>
-                        </div>
-                    {% endfor %}
+{% block title %}画像収集 - PIXCO{% endblock %}
+
+{% block extra_style %}
+.main-content h1 { font-size: 1.8rem; font-weight: 300; margin-bottom: 24px; }
+.board-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+.board-btn { padding: 6px 16px; border: 1px solid #ccc; border-radius: 20px; text-decoration: none; color: #555; font-size: 0.88rem; transition: all 0.2s; }
+.board-btn:hover, .board-btn.active { background: #333; color: #fff; border-color: #333; }
+.error { background: #ffe0e0; border: 1px solid #cc0000; padding: 14px; border-radius: 8px; color: #cc0000; margin-bottom: 20px; }
+.thread-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+.thread-card { border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; transition: box-shadow 0.2s; }
+.thread-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+.thread-card a { display: block; }
+.thread-card img { width: 100%; height: 160px; object-fit: cover; display: block; }
+.thread-card .card-body { padding: 10px; }
+.thread-card .card-title { font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; }
+.thread-card .card-comment { font-size: 0.8rem; color: #777; line-height: 1.4; }
+body.dark .board-btn { border-color: #555; color: #bbb; }
+body.dark .board-btn:hover, body.dark .board-btn.active { background: #e0e0e0; color: #111; border-color: #e0e0e0; }
+body.dark .thread-card { border-color: #444; }
+body.dark .thread-card .card-comment { color: #999; }
+body.dark .main-content h1 { color: #e0e0e0; }
+@media (max-width: 768px) {
+    .thread-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+    .thread-card img { height: 130px; }
+    .board-list { gap: 8px; margin-bottom: 20px; }
+    .board-btn { padding: 6px 12px; font-size: 0.82rem; }
+}
+{% endblock %}
+
+{% block content %}
+<div class="board-list">
+    {% for board in boards %}
+        <a href="?board={{ board.url }}" class="board-btn {% if board.url == board_url %}active{% endif %}">{{ board.name }}</a>
+    {% endfor %}
+</div>
+{% if error %}
+    <div class="error">{{ error }}</div>
+{% elif threads %}
+    <div class="thread-grid">
+        {% for t in threads %}
+            <div class="thread-card">
+                <a href="/collect/thread/?url={{ t.res_url }}">
+                    <img src="{{ t.thumb }}" alt="{{ t.title }}" loading="lazy">
+                </a>
+                <div class="card-body">
+                    <div class="card-title">{{ t.title }}</div>
+                    <div class="card-comment">{{ t.comment }}</div>
                 </div>
-            {% elif board_url %}
-                <p style="color:#999;">画像が見つかりませんでした。</p>
-            {% else %}
-                <p style="color:#999;">上のボードを選択してください。</p>
-            {% endif %}
-        </div>
+            </div>
+        {% endfor %}
     </div>
-    <script>
-        function toggleDark() {
-            const isDark = document.body.classList.toggle('dark');
-            localStorage.setItem('darkMode', isDark);
-            document.getElementById('dark-toggle').textContent = isDark ? '☀️ ライト' : '🌙 ダーク';
-        }
-        if (localStorage.getItem('darkMode') === 'true') {
-            document.body.classList.add('dark');
-            document.getElementById('dark-toggle').textContent = '☀️ ライト';
-        }
-        function toggleMenu() {
-            document.getElementById('sidebar').classList.toggle('open');
-            document.getElementById('sidebar-overlay').classList.toggle('open');
-        }
-    </script>
-</body>
-</html>
+{% elif board_url %}
+    <p style="color:#999;">画像が見つかりませんでした。</p>
+{% else %}
+    <p style="color:#999;">上のボードを選択してください。</p>
+{% endif %}
+{% endblock %}
