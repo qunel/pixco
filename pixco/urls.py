@@ -22,8 +22,47 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 import time
 
-_board_cache = {}  # {url: (timestamp, threads)}
+_board_cache = {}  # {(board_url, page): (timestamp, threads)}
 CACHE_TTL = 300    # 5分
+MAX_PAGES = 5
+
+def _fetch_board_page(board_url, page_num):
+    key = (board_url, page_num)
+    now = time.time()
+    cached = _board_cache.get(key)
+    if cached and now - cached[0] < CACHE_TTL:
+        return cached[1]
+
+    parsed = urlparse(board_url)
+    base_url = f"{parsed.scheme}://{parsed.netloc}"
+    board_dir = parsed.path.rsplit("/", 1)[0]
+    page_url = board_url if page_num == 0 else f"{base_url}{board_dir}/{page_num}.htm"
+
+    res = requests.get(page_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+    if res.status_code != 200:
+        return []
+    soup = BeautifulSoup(res.content, "html.parser", from_encoding="shift_jis")
+
+    threads = []
+    for div in soup.find_all("div", class_="thre"):
+        img_tag = div.find("img", src=True)
+        subject = div.find("span", class_="csb")
+        comment = div.find("blockquote")
+        reply_link = div.find("a", class_="hsbn")
+        if not img_tag:
+            continue
+        thumb_src = img_tag["src"]
+        full_src = thumb_src.replace("/thumb/", "/src/").replace("s.jpg", ".jpg")
+        res_url = (base_url + board_dir + "/" + reply_link["href"].lstrip("/")) if reply_link else ""
+        threads.append({
+            "thumb": base_url + thumb_src,
+            "full": base_url + full_src,
+            "title": subject.get_text(strip=True) if subject else "無題",
+            "comment": comment.get_text(strip=True)[:80] if comment else "",
+            "res_url": res_url,
+        })
+    _board_cache[key] = (now, threads)
+    return threads
 
 def home(request):
     return render(request, 'home.html')
@@ -144,39 +183,10 @@ def collect(request):
 
     if board_url:
         selected_board = next((b for b in BOARDS if b["url"] == board_url), None)
-        now = time.time()
-        cached = _board_cache.get(board_url)
-        if cached and now - cached[0] < CACHE_TTL:
-            threads = cached[1]
-        else:
-            try:
-                res = requests.get(board_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
-                res.encoding = "shift_jis"
-                soup = BeautifulSoup(res.text, "html.parser")
-                parsed = urlparse(board_url)
-                base_url = f"{parsed.scheme}://{parsed.netloc}"
-
-                for div in soup.find_all("div", class_="thre"):
-                    img_tag = div.find("img", src=True)
-                    subject = div.find("span", class_="csb")
-                    comment = div.find("blockquote")
-                    reply_link = div.find("a", class_="hsbn")
-                    if not img_tag:
-                        continue
-                    thumb_src = img_tag["src"]
-                    full_src = thumb_src.replace("/thumb/", "/src/").replace("s.jpg", ".jpg")
-                    board_dir = parsed.path.rsplit("/", 1)[0]
-                    res_url = (base_url + board_dir + "/" + reply_link["href"].lstrip("/")) if reply_link else ""
-                    threads.append({
-                        "thumb": base_url + thumb_src,
-                        "full": base_url + full_src,
-                        "title": subject.get_text(strip=True) if subject else "無題",
-                        "comment": comment.get_text(strip=True)[:80] if comment else "",
-                        "res_url": res_url,
-                    })
-                _board_cache[board_url] = (now, threads)
-            except Exception as e:
-                error = f"取得に失敗しました: {e}"
+        try:
+            threads = _fetch_board_page(board_url, 0)
+        except Exception as e:
+            error = f"取得に失敗しました: {e}"
 
     return render(request, 'collect.html', {
         "boards": BOARDS,
@@ -185,6 +195,19 @@ def collect(request):
         "board_url": board_url,
         "error": error,
     })
+
+from django.http import JsonResponse
+
+def collect_more(request):
+    board_url = request.GET.get("board", "")
+    page = int(request.GET.get("page", 1))
+    if not board_url or page < 1 or page >= MAX_PAGES:
+        return JsonResponse({"threads": []})
+    try:
+        threads = _fetch_board_page(board_url, page)
+    except Exception:
+        return JsonResponse({"threads": []})
+    return JsonResponse({"threads": threads})
 
 def thread_detail(request):
     res_url = request.GET.get("url", "")
@@ -224,5 +247,6 @@ urlpatterns = [
     path('', home, name='home'),
     path('profile/', profile, name='profile'),
     path('collect/', collect, name='collect'),
+    path('collect/more/', collect_more, name='collect_more'),
     path('collect/thread/', thread_detail, name='thread_detail'),
 ]

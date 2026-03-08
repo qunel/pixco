@@ -16,6 +16,7 @@
 .thread-card .card-body { padding: 10px; }
 .thread-card .card-title { font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; }
 .thread-card .card-comment { font-size: 0.8rem; color: #777; line-height: 1.4; }
+.load-more-indicator { text-align: center; padding: 24px; color: #999; font-size: 0.9rem; display: none; }
 body.dark .board-btn { border-color: #555; color: #bbb; }
 body.dark .board-btn:hover, body.dark .board-btn.active { background: #e0e0e0; color: #111; border-color: #e0e0e0; }
 body.dark .thread-card { border-color: #444; }
@@ -38,7 +39,7 @@ body.dark .main-content h1 { color: #e0e0e0; }
 {% if error %}
     <div class="error">{{ error }}</div>
 {% elif threads %}
-    <div class="thread-grid">
+    <div class="thread-grid" id="thread-grid">
         {% for t in threads %}
             <div class="thread-card">
                 <a href="/collect/thread/?url={{ t.res_url }}">
@@ -51,6 +52,65 @@ body.dark .main-content h1 { color: #e0e0e0; }
             </div>
         {% endfor %}
     </div>
+    <div id="scroll-sentinel" style="height:1px;"></div>
+    <div class="load-more-indicator" id="load-more-indicator">読み込み中...</div>
+    <script>
+    (function() {
+        const boardUrl = "{{ board_url|escapejs }}";
+        const grid = document.getElementById('thread-grid');
+        const sentinel = document.getElementById('scroll-sentinel');
+        const indicator = document.getElementById('load-more-indicator');
+        let page = 1;
+        let loading = false;
+        let done = false;
+
+        function escapeHtml(s) {
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function makeCard(t) {
+            return `<div class="thread-card">
+                <a href="/collect/thread/?url=${encodeURIComponent(t.res_url)}">
+                    <img src="${escapeHtml(t.thumb)}" alt="${escapeHtml(t.title)}" loading="lazy">
+                </a>
+                <div class="card-body">
+                    <div class="card-title">${escapeHtml(t.title)}</div>
+                    <div class="card-comment">${escapeHtml(t.comment)}</div>
+                </div>
+            </div>`;
+        }
+
+        async function loadMore() {
+            if (loading || done) return;
+            loading = true;
+            indicator.style.display = 'block';
+            try {
+                const res = await fetch(`/collect/more/?board=${encodeURIComponent(boardUrl)}&page=${page}`);
+                const data = await res.json();
+                if (!data.threads || data.threads.length === 0) {
+                    done = true;
+                    observer.unobserve(sentinel);
+                } else {
+                    grid.insertAdjacentHTML('beforeend', data.threads.map(makeCard).join(''));
+                    page++;
+                    if (page >= 5) {
+                        done = true;
+                        observer.unobserve(sentinel);
+                    }
+                }
+            } catch(e) {
+                done = true;
+            }
+            indicator.style.display = 'none';
+            loading = false;
+        }
+
+        const observer = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting) loadMore();
+        }, { rootMargin: '200px' });
+        observer.observe(sentinel);
+    })();
+    </script>
 {% elif board_url %}
     <p style="color:#999;">画像が見つかりませんでした。</p>
 {% else %}
