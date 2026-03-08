@@ -24,7 +24,7 @@ import time
 
 _board_cache = {}  # {(board_url, page): (timestamp, threads)}
 CACHE_TTL = 300    # 5分
-MAX_PAGES = 5
+MAX_PAGES = 10
 
 def _fetch_board_page(board_url, page_num):
     key = (board_url, page_num)

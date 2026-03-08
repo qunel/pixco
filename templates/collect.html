@@ -93,7 +93,7 @@ body.dark .main-content h1 { color: #e0e0e0; }
                 } else {
                     grid.insertAdjacentHTML('beforeend', data.threads.map(makeCard).join(''));
                     page++;
-                    if (page >= 5) {
+                    if (page >= 10) {
                         done = true;
                         observer.unobserve(sentinel);
                     }
